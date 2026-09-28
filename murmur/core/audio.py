@@ -74,11 +74,15 @@ class AudioManager:
             Path al archivo final ensamblado y listo para transcripción.
         """
         session_chunks_dir = self.chunks_dir / session_id
-        if not session_chunks_dir.exists():
-            raise FileNotFoundError(f"No se encontraron fragmentos para la sesión: {session_id}")
+        # Esperar hasta 3 segundos si los últimos fragmentos están en vuelo
+        chunks = []
+        for _ in range(12):
+            if session_chunks_dir.exists():
+                chunks = sorted(session_chunks_dir.glob("chunk_*.webm"))
+                if chunks:
+                    break
+            await asyncio.sleep(0.25)
 
-        # Listar y ordenar todos los trozos por índice
-        chunks = sorted(session_chunks_dir.glob("chunk_*.webm"))
         if not chunks:
             raise ValueError(f"La sesión {session_id} no contiene fragmentos de audio.")
 

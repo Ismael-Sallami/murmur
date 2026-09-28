@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Mic,
   Square,
@@ -15,6 +15,8 @@ import {
   Volume2,
   VolumeX,
   Compass,
+  ArrowRight,
+  FolderOpen,
 } from "lucide-react";
 import { marked } from "marked";
 import { AudioVisualizer } from "./components/AudioVisualizer";
@@ -22,6 +24,7 @@ import { SecurityNotice } from "./components/SecurityNotice";
 import { MurmurBackground } from "./components/MurmurBackground";
 import { StructuredFilesExplorer } from "./components/StructuredFilesExplorer";
 import { soundScape } from "./audio/soundScape";
+import { useLiveSpeech } from "./hooks/useLiveSpeech";
 
 export const App: React.FC = () => {
   // Parámetros de la sesión
@@ -45,9 +48,19 @@ export const App: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
   const sessionIdRef = useRef<string>("");
+  const pendingChunkPromisesRef = useRef<Promise<any>[]>([]);
+
+  // Hook de transcripción en directo en tiempo real (al momento)
+  const {
+    liveTranscript,
+    interimText,
+    startListening,
+    stopListening,
+    resetTranscript,
+    setLiveTranscript,
+  } = useLiveSpeech({ lang: "es-ES" });
 
   // Resultados
-  const [transcript, setTranscript] = useState("");
   const [notesMarkdown, setNotesMarkdown] = useState("");
   const [lastAudioPath, setLastAudioPath] = useState<string | null>(null);
 
@@ -83,7 +96,7 @@ export const App: React.FC = () => {
     return `${hrs}:${mins}:${secs}`;
   };
 
-  // Iniciar grabación en directo
+  // Iniciar grabación y dictado en directo
   const handleStartRecording = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       showToast("Micrófono no accesible. Asegúrate de usar http://localhost:8000 o HTTPS.", "error");
@@ -96,8 +109,14 @@ export const App: React.FC = () => {
       setIsRecording(true);
       setRecordSeconds(0);
       setChunkCount(0);
-      setIsOrderedState(false); // Volver al murmullo
+      setIsOrderedState(false);
+      resetTranscript();
+      pendingChunkPromisesRef.current = [];
 
+      // 1. Iniciar dictado en vivo inmediato (Web Speech API)
+      startListening();
+
+      // 2. Iniciar grabación de audio en alta fidelidad (Opus chunks)
       const sessionId = "class_" + Date.now();
       sessionIdRef.current = sessionId;
 
@@ -109,7 +128,7 @@ export const App: React.FC = () => {
       mediaRecorderRef.current = recorder;
 
       let currentChunkIdx = 0;
-      recorder.ondataavailable = async (event) => {
+      recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
           const chunkIdx = currentChunkIdx++;
           setChunkCount(chunkIdx + 1);
@@ -119,21 +138,21 @@ export const App: React.FC = () => {
           formData.append("chunk_index", String(chunkIdx));
           formData.append("chunk", event.data, `chunk_${chunkIdx}.webm`);
 
-          try {
-            await fetch("/api/audio/chunk", { method: "POST", body: formData });
-          } catch (e) {
-            console.error("Error al enviar chunk:", e);
-          }
+          const uploadPromise = fetch("/api/audio/chunk", { method: "POST", body: formData }).catch((e) =>
+            console.error("Error al enviar chunk:", e)
+          );
+          pendingChunkPromisesRef.current.push(uploadPromise);
         }
       };
 
-      recorder.start(30000);
+      // Emitir fragmentos cada 5 segundos para que incluso grabaciones cortas se sincronicen
+      recorder.start(5000);
 
       timerRef.current = window.setInterval(() => {
         setRecordSeconds((prev) => prev + 1);
       }, 1000);
 
-      showToast("Grabación iniciada en directo.", "info");
+      showToast("Dictado en vivo activado. Habla para ver el texto al momento.", "info");
     } catch (err: any) {
       showToast("Error al abrir micrófono: " + err.message, "error");
     }
@@ -144,7 +163,17 @@ export const App: React.FC = () => {
     if (!mediaRecorderRef.current) return;
 
     if (timerRef.current) clearInterval(timerRef.current);
-    mediaRecorderRef.current.stop();
+
+    // Detener reconocimiento en vivo
+    const capturedText = stopListening();
+
+    // Detener MediaRecorder y esperar a que emita el último chunk
+    const recorder = mediaRecorderRef.current;
+    const stopPromise = new Promise<void>((resolve) => {
+      recorder.onstop = () => resolve();
+    });
+
+    recorder.stop();
     if (stream) {
       stream.getTracks().forEach((track) => track.stop());
       setStream(null);
@@ -152,9 +181,13 @@ export const App: React.FC = () => {
     setIsRecording(false);
 
     setIsLoading(true);
-    setLoadingMessage("Ensamblando fragmentos de la clase...");
+    setLoadingMessage("Ensamblando audio y estructurando apuntes...");
 
     try {
+      await stopPromise;
+      // Esperar a que todos los fragmentos en vuelo terminen de subir
+      await Promise.all(pendingChunkPromisesRef.current);
+
       const formData = new FormData();
       formData.append("session_id", sessionIdRef.current);
 
@@ -163,9 +196,90 @@ export const App: React.FC = () => {
       if (!res.ok) throw new Error(data.detail || "Error al ensamblar audio");
 
       setLastAudioPath(data.merged_path);
-      await triggerTranscription(data.merged_path);
+
+      // Si el reconocimiento en vivo ya capturó texto, usarlo y disparar generación
+      const currentFullText = liveTranscript || capturedText;
+      if (currentFullText && currentFullText.trim().length > 10) {
+        await processAndStructureLecture(currentFullText, data.merged_path);
+      } else {
+        // Si no hubo texto en vivo (navegador sin Web Speech), transcribir con Whisper
+        await triggerWhisperAndStructure(data.merged_path);
+      }
     } catch (err: any) {
       showToast(err.message, "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Transcribir con Whisper y estructurar
+  const triggerWhisperAndStructure = async (audioPath: string) => {
+    setIsLoading(true);
+    setLoadingMessage("Transcribiendo clase con Whisper...");
+    try {
+      const res = await fetch("/api/audio/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audio_path: audioPath }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Fallo en Whisper");
+
+      setLiveTranscript(data.text);
+      await processAndStructureLecture(data.text, audioPath);
+    } catch (err: any) {
+      showToast("Error en Whisper: " + err.message, "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Generar apuntes con LLM y organizar ficheros en disco
+  const processAndStructureLecture = async (transcriptText: string, audioPath?: string | null) => {
+    if (!transcriptText.trim()) return;
+
+    setIsLoading(true);
+    setLoadingMessage("Sintetizando apuntes en formato Cornell y generando ficheros...");
+
+    try {
+      // 1. Sintetizar apuntes con LLM
+      const res = await fetch("/api/notes/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transcript: transcriptText,
+          subject: subject.trim() || "General",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Error al generar apuntes");
+
+      const generatedNotes = data.notes;
+      setNotesMarkdown(generatedNotes);
+
+      // 2. Resolución acústica del Murmullo al Orden
+      setIsOrderedState(true);
+      soundScape.transitionToOrder();
+
+      // 3. Auto-estructurar ficheros en disco por asignatura (.md, .tex, .pdf, .json, .txt)
+      const autoRes = await fetch("/api/files/auto-structure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: subject.trim() || "General",
+          title: title.trim() || "Tema_Clase",
+          transcript: transcriptText,
+          notes_md: generatedNotes,
+          audio_path: audioPath,
+        }),
+      });
+
+      if (autoRes.ok) {
+        setRefreshFilesTrigger((prev) => prev + 1);
+        showToast("✨ Ficheros estructurados guardados automáticamente.", "success");
+      }
+    } catch (err: any) {
+      showToast("Error en procesamiento: " + err.message, "error");
     } finally {
       setIsLoading(false);
     }
@@ -189,7 +303,7 @@ export const App: React.FC = () => {
 
       setLastAudioPath(data.path);
       showToast(`Archivo subido. Transcribiendo con Whisper...`, "success");
-      await triggerTranscription(data.path);
+      await triggerWhisperAndStructure(data.path);
     } catch (err: any) {
       showToast(err.message, "error");
     } finally {
@@ -197,86 +311,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Transcripción Whisper
-  const triggerTranscription = async (audioPath: string) => {
-    setIsLoading(true);
-    setLoadingMessage("Transcribiendo clase con Whisper...");
-    try {
-      const res = await fetch("/api/audio/transcribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audio_path: audioPath }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Fallo en Whisper");
-
-      setTranscript(data.text);
-      showToast("Transcripción completada con éxito.", "success");
-    } catch (err: any) {
-      showToast("Error en transcripción: " + err.message, "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Generación de apuntes y auto-estructuración en ficheros
-  const handleGenerateNotes = async () => {
-    if (!transcript.trim()) {
-      showToast("Primero debes grabar o subir un audio de clase.", "error");
-      return;
-    }
-
-    setIsLoading(true);
-    setLoadingMessage("Sintetizando apuntes y organizando ficheros estructurados...");
-
-    try {
-      // 1. Llamar al LLM para sintetizar los apuntes Cornell
-      const res = await fetch("/api/notes/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transcript: transcript,
-          subject: subject.trim() || "General",
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Error al generar apuntes");
-
-      const generatedNotes = data.notes;
-      setNotesMarkdown(generatedNotes);
-
-      // 2. Momento mágico: Transición acústica y visual del Murmullo al Orden
-      setIsOrderedState(true);
-      soundScape.transitionToOrder();
-
-      // 3. Estructurar y guardar automáticamente los ficheros en disco (.md, .tex, .pdf, .json, .txt)
-      const autoRes = await fetch("/api/files/auto-structure", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: subject.trim() || "General",
-          title: title.trim() || "Tema_Clase",
-          transcript: transcript,
-          notes_md: generatedNotes,
-          audio_path: lastAudioPath,
-        }),
-      });
-      const autoData = await autoRes.json();
-      if (autoRes.ok) {
-        setRefreshFilesTrigger((prev) => prev + 1);
-        showToast(
-          `✨ Del murmullo al orden: Ficheros estructurados guardados en /${subject}/`,
-          "success"
-        );
-      }
-    } catch (err: any) {
-      showToast("Error en procesamiento: " + err.message, "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Exportaciones MCP manuales adicionales
+  // Exportaciones MCP manuales
   const handleExport = async (target: "obsidian" | "latex" | "notion") => {
     if (!notesMarkdown) {
       showToast("No hay apuntes generados para exportar.", "error");
@@ -321,25 +356,27 @@ export const App: React.FC = () => {
   };
 
   const handleCopyTranscript = () => {
-    navigator.clipboard.writeText(transcript);
+    navigator.clipboard.writeText(liveTranscript);
     setCopiedTranscript(true);
     setTimeout(() => setCopiedTranscript(false), 2000);
   };
 
+  const totalWords = (liveTranscript ? liveTranscript.trim().split(/\s+/).length : 0);
+
   return (
-    <div className="min-h-screen bg-nordic-bg text-nordic-pearl flex flex-col font-sans relative overflow-x-hidden">
-      {/* Lienzo Visual: Del Murmullo al Orden */}
+    <div className="min-h-screen bg-nordic-bg text-nordic-pearl flex flex-col font-sans relative overflow-x-hidden selection:bg-nordic-aurora selection:text-nordic-bg">
+      {/* Fondo Atmosférico Boreal */}
       <MurmurBackground isOrdered={isOrderedState} />
 
-      {/* Toast Notification */}
+      {/* Notificación Toast Flotante */}
       {toast && (
         <div
-          className={`fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold flex items-center gap-2 border transition-all ${
+          className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl shadow-2xl text-xs font-semibold flex items-center gap-2.5 border backdrop-blur-md transition-all ${
             toast.type === "success"
-              ? "bg-nordic-surface/90 text-nordic-emerald border-nordic-emerald/50"
+              ? "bg-nordic-surface/95 text-nordic-emerald border-nordic-emerald/50 shadow-emerald-950/40"
               : toast.type === "error"
-              ? "bg-rose-950/90 text-rose-300 border-rose-700"
-              : "bg-nordic-surface/90 text-nordic-aurora border-nordic-aurora/50"
+              ? "bg-rose-950/95 text-rose-300 border-rose-700 shadow-rose-950/40"
+              : "bg-nordic-surface/95 text-nordic-aurora border-nordic-aurora/50 shadow-teal-950/40"
           }`}
         >
           <span>{toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : "ℹ"}</span>
@@ -347,232 +384,257 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Header Nordic Aurora */}
-      <header className="bg-nordic-surface/80 backdrop-blur-md border-b border-nordic-border sticky top-0 z-40 px-4 py-3">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+      {/* Barra Superior de Estudio */}
+      <header className="bg-nordic-surface/70 backdrop-blur-xl border-b border-nordic-border/70 sticky top-0 z-40 px-5 py-3.5">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-nordic-aurora/30 to-nordic-emerald/30 border border-nordic-aurora/40 flex items-center justify-center text-nordic-aurora shadow-lg shadow-teal-950/50">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-nordic-aurora/20 via-nordic-emerald/20 to-teal-500/20 border border-nordic-aurora/40 flex items-center justify-center text-nordic-aurora shadow-lg shadow-teal-950/30">
               <Radio className="w-5 h-5 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold tracking-tight text-nordic-pearl">
-                  Murmur
+                <h1 className="text-base font-bold tracking-tight text-nordic-pearl font-mono">
+                  MURMUR
                 </h1>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-nordic-aurora/15 text-nordic-aurora border border-nordic-aurora/30">
-                  Nordic Aurora
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-nordic-aurora/10 text-nordic-aurora border border-nordic-aurora/30">
+                  Estudio Nórdico
                 </span>
               </div>
-              <p className="text-[11px] text-nordic-muted">Del Murmullo al Orden • Whisper + LLMs + MCP</p>
+              <p className="text-[11px] text-nordic-muted">Del Murmullo al Orden • Transcripción & Apuntes</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Botón de Sonido Ambiental de Calma */}
+            {/* Control Sonoro: Murmullo Calmo */}
             <button
               onClick={toggleAmbientAudio}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-2 transition ${
                 ambientAudioActive
-                  ? "bg-nordic-aurora/20 text-nordic-aurora border-nordic-aurora/50 shadow-md shadow-teal-950/50"
-                  : "bg-nordic-surfaceLight/60 text-nordic-muted border-nordic-border hover:text-nordic-pearl"
+                  ? "bg-nordic-aurora/20 text-nordic-aurora border-nordic-aurora/50 shadow-md shadow-teal-950/40"
+                  : "bg-nordic-surfaceLight/50 text-nordic-muted border-nordic-border/70 hover:text-nordic-pearl"
               }`}
-              title="Activar/Desactivar murmullo ambiental sutil para concentración"
+              title="Activar murmullo sutil de fondo para concentración"
             >
-              {ambientAudioActive ? <Volume2 className="w-3.5 h-3.5 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5" />}
-              <span>Murmullo Calmo</span>
+              {ambientAudioActive ? <Volume2 className="w-3.5 h-3.5 text-nordic-aurora animate-pulse" /> : <VolumeX className="w-3.5 h-3.5" />}
+              <span>Murmullo Zen</span>
             </button>
 
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-nordic-surfaceLight text-nordic-emerald border border-nordic-emerald/40">
-              <span className="w-2 h-2 rounded-full bg-nordic-emerald animate-ping"></span>
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium bg-nordic-surfaceLight/80 text-nordic-emerald border border-nordic-emerald/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-nordic-emerald animate-ping"></span>
               En Línea
             </span>
           </div>
         </div>
       </header>
 
-      {/* Contenido Principal */}
-      <main className="max-w-5xl mx-auto w-full p-4 sm:p-6 flex-1 space-y-6 relative z-10">
-        {/* Banner de contexto seguro */}
+      {/* Contenedor Principal */}
+      <main className="max-w-6xl mx-auto w-full p-4 sm:p-6 flex-1 space-y-6 relative z-10">
         <SecurityNotice />
 
-        {/* Tarjeta de Parámetros de la Clase */}
-        <div className="bg-nordic-surface/80 border border-nordic-border rounded-2xl p-5 shadow-sm space-y-4 backdrop-blur-md">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Parámetros de la Clase (Estilo Barra Minimalista) */}
+        <div className="bg-nordic-surface/70 border border-nordic-border/80 rounded-2xl p-4 backdrop-blur-xl shadow-lg">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-nordic-muted mb-1.5">
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-nordic-muted mb-1">
                 Asignatura / Materia
               </label>
               <input
                 type="text"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder="Ej. Física Teórica, Álgebra Lineal..."
-                className="w-full bg-nordic-bg/90 border border-nordic-border rounded-xl px-3.5 py-2.5 text-sm text-nordic-pearl focus:outline-none focus:border-nordic-aurora focus:ring-1 focus:ring-nordic-aurora transition"
+                placeholder="Ej. Física Teórica, Análisis Matemático..."
+                className="w-full bg-nordic-bg/80 border border-nordic-border/80 rounded-xl px-3.5 py-2 text-xs font-medium text-nordic-pearl focus:outline-none focus:border-nordic-aurora focus:ring-1 focus:ring-nordic-aurora transition"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-nordic-muted mb-1.5">
-                Título o Tema de la Sesión
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-nordic-muted mb-1">
+                Tema / Sesión
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ej. Tema 1: Principios y Ecuaciones..."
-                className="w-full bg-nordic-bg/90 border border-nordic-border rounded-xl px-3.5 py-2.5 text-sm text-nordic-pearl focus:outline-none focus:border-nordic-aurora focus:ring-1 focus:ring-nordic-aurora transition"
+                placeholder="Ej. Tema 1: Leyes de la Termodinámica..."
+                className="w-full bg-nordic-bg/80 border border-nordic-border/80 rounded-xl px-3.5 py-2 text-xs font-medium text-nordic-pearl focus:outline-none focus:border-nordic-aurora focus:ring-1 focus:ring-nordic-aurora transition"
               />
             </div>
           </div>
         </div>
 
-        {/* Pestañas: Grabar vs Subir */}
-        <div className="flex border-b border-nordic-border gap-6">
-          <button
-            onClick={() => setActiveTab("record")}
-            className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition ${
-              activeTab === "record"
-                ? "border-nordic-aurora text-nordic-aurora"
-                : "border-transparent text-nordic-muted hover:text-nordic-pearl"
-            }`}
-          >
-            <Mic className="w-4 h-4 text-rose-400" />
-            Grabación en Directo
-          </button>
-          <button
-            onClick={() => setActiveTab("upload")}
-            className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition ${
-              activeTab === "upload"
-                ? "border-nordic-aurora text-nordic-aurora"
-                : "border-transparent text-nordic-muted hover:text-nordic-pearl"
-            }`}
-          >
-            <Upload className="w-4 h-4" />
-            Subir Audio de Clase
-          </button>
-        </div>
+        {/* Consola Principal: Grabación en Vivo / Subida */}
+        <section className="bg-nordic-surface/80 border border-nordic-border rounded-3xl p-6 sm:p-8 text-center space-y-5 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+          {/* Luz de fondo sutil */}
+          <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-28 bg-nordic-aurora/10 blur-3xl pointer-events-none" />
 
-        {/* Panel 1: Grabación en Directo */}
-        {activeTab === "record" ? (
-          <section className="bg-nordic-surface/80 border border-nordic-border rounded-2xl p-6 text-center space-y-5 backdrop-blur-md shadow-xl">
-            <div className="space-y-1">
-              <p className="text-xs text-nordic-muted">Captura el audio de la clase en tiempo real desde el micrófono</p>
-              <div
-                className={`text-5xl font-mono font-bold tracking-tight transition ${
-                  isRecording ? "text-rose-400 animate-pulse" : "text-nordic-muted"
-                }`}
-              >
-                {formatTime(recordSeconds)}
+          {/* Navegación de modo */}
+          <div className="flex items-center justify-center gap-3">
+            <button
+              onClick={() => setActiveTab("record")}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${
+                activeTab === "record"
+                  ? "bg-nordic-aurora/20 text-nordic-aurora border border-nordic-aurora/40"
+                  : "text-nordic-muted hover:text-nordic-pearl"
+              }`}
+            >
+              🎙️ Dictado en Directo
+            </button>
+            <button
+              onClick={() => setActiveTab("upload")}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${
+                activeTab === "upload"
+                  ? "bg-nordic-aurora/20 text-nordic-aurora border border-nordic-aurora/40"
+                  : "text-nordic-muted hover:text-nordic-pearl"
+              }`}
+            >
+              📁 Subir Audio de Clase
+            </button>
+          </div>
+
+          {activeTab === "record" ? (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <div className="flex items-center justify-center gap-2">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      isRecording ? "bg-rose-500 animate-ping" : "bg-nordic-muted"
+                    }`}
+                  />
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-nordic-muted">
+                    {isRecording ? "Transcribiendo voz en tiempo real..." : "Listo para dictar o escuchar"}
+                  </span>
+                </div>
+                <div
+                  className={`text-5xl sm:text-6xl font-mono font-bold tracking-tight transition ${
+                    isRecording ? "text-nordic-aurora" : "text-nordic-muted"
+                  }`}
+                >
+                  {formatTime(recordSeconds)}
+                </div>
               </div>
-              {isRecording && (
-                <p className="text-xs text-nordic-muted">
-                  Fragmentos seguros sincronizados: <span className="text-nordic-aurora font-bold">{chunkCount}</span>
+
+              {/* Visualizador de Onda */}
+              <AudioVisualizer isRecording={isRecording} stream={stream} />
+
+              {/* Botón Principal de Acción */}
+              <div className="pt-2 flex items-center justify-center">
+                {!isRecording ? (
+                  <button
+                    onClick={handleStartRecording}
+                    disabled={isLoading}
+                    className="group relative px-9 py-3.5 rounded-full bg-gradient-to-r from-nordic-aurora to-nordic-emerald hover:from-teal-400 hover:to-emerald-400 text-nordic-bg font-bold text-sm shadow-xl shadow-teal-950/60 flex items-center gap-3 transition transform active:scale-95"
+                  >
+                    <Mic className="w-4 h-4" />
+                    <span>Iniciar Dictado en Vivo</span>
+                    <ArrowRight className="w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStopRecording}
+                    disabled={isLoading}
+                    className="px-9 py-3.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm shadow-xl shadow-rose-950/60 flex items-center gap-3 transition transform active:scale-95"
+                  >
+                    <Square className="w-4 h-4 fill-white" />
+                    <span>Finalizar y Estructurar Ficheros</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="py-6 border border-dashed border-nordic-border rounded-2xl space-y-3">
+              <Upload className="w-8 h-8 text-nordic-aurora mx-auto" />
+              <div>
+                <p className="text-xs font-semibold text-nordic-pearl">Arrastra aquí una grabación de voz</p>
+                <p className="text-[11px] text-nordic-muted">Formatos compatibles: MP3, M4A, WAV, WebM, OGG</p>
+              </div>
+              <input type="file" id="upload-input" accept="audio/*" onChange={handleFileUpload} className="hidden" />
+              <button
+                onClick={() => document.getElementById("upload-input")?.click()}
+                className="px-4 py-2 bg-nordic-surfaceLight hover:bg-nordic-border text-xs font-medium rounded-xl transition text-nordic-pearl"
+              >
+                Seleccionar Archivo
+              </button>
+            </div>
+          )}
+
+          {/* Indicador de procesamiento */}
+          {isLoading && (
+            <div className="bg-nordic-surfaceLight/90 border border-nordic-aurora/40 rounded-2xl p-3.5 flex items-center justify-center gap-3 text-nordic-aurora text-xs font-medium shadow-md">
+              <div className="w-4 h-4 border-2 border-nordic-aurora border-t-transparent rounded-full animate-spin" />
+              <span>{loadingMessage}</span>
+            </div>
+          )}
+        </section>
+
+        {/* Zona de Trabajo Dividida: Transcripción en Vivo vs Apuntes */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Panel Izquierdo: Texto en Vivo al Momento */}
+          <section className="bg-nordic-surface/80 border border-nordic-border rounded-2xl p-5 flex flex-col space-y-3 backdrop-blur-xl shadow-xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-nordic-aurora" />
+                <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-nordic-pearl">
+                  Transcripción en Directo
+                </h2>
+                {isRecording && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-950/80 text-rose-400 border border-rose-800/40 animate-pulse">
+                    En vivo
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-mono text-nordic-muted">{totalWords} palabras</span>
+                <button
+                  onClick={handleCopyTranscript}
+                  disabled={!liveTranscript}
+                  className="text-xs text-nordic-muted hover:text-nordic-pearl flex items-center gap-1 transition"
+                >
+                  {copiedTranscript ? <Check className="w-3.5 h-3.5 text-nordic-emerald" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedTranscript ? "Copiado" : "Copiar"}
+                </button>
+              </div>
+            </div>
+
+            {/* Cuadro de texto que se va escribiendo al momento */}
+            <div className="w-full flex-1 min-h-[260px] max-h-[380px] overflow-y-auto bg-nordic-bg/90 border border-nordic-border rounded-xl p-4 text-xs font-mono text-slate-200 leading-relaxed space-y-2">
+              {liveTranscript || interimText ? (
+                <div>
+                  <span>{liveTranscript}</span>
+                  {interimText && <span className="text-nordic-aurora/90 italic ml-1">{interimText}</span>}
+                  {isRecording && <span className="inline-block w-1.5 h-4 bg-nordic-aurora ml-1 animate-pulse align-middle" />}
+                </div>
+              ) : (
+                <p className="text-nordic-muted/70 italic">
+                  El texto dictado o hablado en clase aparecerá aquí en tiempo real según hables...
                 </p>
               )}
             </div>
 
-            {/* Visualizador de Onda Dinámico */}
-            <AudioVisualizer isRecording={isRecording} stream={stream} />
-
-            <div className="flex items-center justify-center gap-4">
-              {!isRecording ? (
-                <button
-                  onClick={handleStartRecording}
-                  disabled={isLoading}
-                  className="px-8 py-3.5 rounded-full bg-nordic-aurora hover:bg-teal-400 active:scale-95 text-nordic-bg font-bold text-sm shadow-xl shadow-teal-950/50 flex items-center gap-2.5 transition"
-                >
-                  <Mic className="w-4 h-4" />
-                  Iniciar Grabación
-                </button>
-              ) : (
-                <button
-                  onClick={handleStopRecording}
-                  disabled={isLoading}
-                  className="px-8 py-3.5 rounded-full bg-nordic-surfaceLight hover:bg-nordic-border active:scale-95 text-nordic-pearl font-bold text-sm shadow-xl flex items-center gap-2.5 transition border border-nordic-border"
-                >
-                  <Square className="w-4 h-4 text-rose-400 fill-rose-400" />
-                  Finalizar y Procesar Clase
-                </button>
-              )}
-            </div>
-
-            <p className="text-[11px] text-nordic-muted/80">
-              🛡️ Protección continua: El audio se fragmenta y almacena en el servidor cada 30 segundos para prevenir pérdidas ante desconexiones.
-            </p>
-          </section>
-        ) : (
-          /* Panel 2: Subida de archivo */
-          <section className="bg-nordic-surface/80 border border-nordic-border border-dashed rounded-2xl p-8 text-center space-y-4 backdrop-blur-md">
-            <div className="w-12 h-12 rounded-2xl bg-nordic-surfaceLight flex items-center justify-center mx-auto text-nordic-aurora">
-              <Upload className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-nordic-pearl">Arrastra un archivo de audio grabado en clase</p>
-              <p className="text-xs text-nordic-muted mt-1">Soporta formatos estándar: MP3, M4A (iPhone), WAV, WebM, OGG</p>
-            </div>
-            <input type="file" id="upload-input" accept="audio/*" onChange={handleFileUpload} className="hidden" />
             <button
-              onClick={() => document.getElementById("upload-input")?.click()}
-              className="px-5 py-2.5 bg-nordic-surfaceLight hover:bg-nordic-border text-sm font-medium rounded-xl transition border border-nordic-border text-nordic-pearl"
-            >
-              Examinar Archivo
-            </button>
-          </section>
-        )}
-
-        {/* Indicador de carga */}
-        {isLoading && (
-          <div className="bg-nordic-surface/90 border border-nordic-aurora/50 rounded-2xl p-4 flex items-center gap-3 text-nordic-aurora shadow-lg animate-pulse">
-            <div className="w-5 h-5 border-2 border-nordic-aurora border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-xs font-medium">{loadingMessage}</span>
-          </div>
-        )}
-
-        {/* Sección de Resultados Dividida */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Panel Izquierdo: Transcripción Whisper */}
-          <section className="bg-nordic-surface/80 border border-nordic-border rounded-2xl p-5 flex flex-col space-y-3 backdrop-blur-md shadow-xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-nordic-muted font-bold text-xs uppercase tracking-wider">
-                <FileText className="w-4 h-4 text-nordic-aurora" />
-                <span>Transcripción Whisper (El Murmullo)</span>
-              </div>
-              <button
-                onClick={handleCopyTranscript}
-                disabled={!transcript}
-                className="text-xs text-nordic-muted hover:text-nordic-pearl flex items-center gap-1 transition"
-              >
-                {copiedTranscript ? <Check className="w-3.5 h-3.5 text-nordic-emerald" /> : <Copy className="w-3.5 h-3.5" />}
-                {copiedTranscript ? "Copiado" : "Copiar"}
-              </button>
-            </div>
-            <textarea
-              value={transcript}
-              onChange={(e) => setTranscript(e.target.value)}
-              placeholder="La transcripción literal de la clase aparecerá aquí..."
-              className="w-full flex-1 min-h-[220px] bg-nordic-bg/90 border border-nordic-border rounded-xl p-3.5 text-xs font-mono text-slate-300 resize-none focus:outline-none focus:border-nordic-aurora"
-            />
-            <button
-              onClick={handleGenerateNotes}
-              disabled={isLoading || !transcript}
-              className="w-full py-2.5 bg-nordic-emerald hover:bg-emerald-400 disabled:opacity-50 text-nordic-bg font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50"
+              onClick={() => processAndStructureLecture(liveTranscript, lastAudioPath)}
+              disabled={isLoading || !liveTranscript.trim()}
+              className="w-full py-2.5 bg-nordic-emerald hover:bg-emerald-400 disabled:opacity-40 text-nordic-bg font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Sintetizar y Organizar en Ficheros Estructurados
+              Sintetizar y Generar Ficheros Estructurados
             </button>
           </section>
 
-          {/* Panel Derecho: Apuntes Académicos y Exportación */}
-          <section className="bg-nordic-surface/80 border border-nordic-border rounded-2xl p-5 flex flex-col space-y-3 backdrop-blur-md shadow-xl">
+          {/* Panel Derecho: Apuntes Cornell & LaTeX */}
+          <section className="bg-nordic-surface/80 border border-nordic-border rounded-2xl p-5 flex flex-col space-y-3 backdrop-blur-xl shadow-xl">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-nordic-muted font-bold text-xs uppercase tracking-wider">
+              <div className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-nordic-emerald" />
-                <span>Apuntes Cornell & LaTeX (El Orden)</span>
+                <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-nordic-pearl">
+                  Apuntes Estructurados
+                </h2>
               </div>
-              <div className="flex gap-1.5 bg-nordic-bg p-1 rounded-lg border border-nordic-border">
+              <div className="flex gap-1 bg-nordic-bg p-1 rounded-lg border border-nordic-border/70">
                 <button
                   onClick={() => setNotesViewMode("preview")}
                   className={`text-[11px] px-2.5 py-0.5 rounded-md font-medium transition ${
-                    notesViewMode === "preview" ? "bg-nordic-surfaceLight text-nordic-pearl" : "text-nordic-muted hover:text-nordic-pearl"
+                    notesViewMode === "preview"
+                      ? "bg-nordic-surfaceLight text-nordic-pearl"
+                      : "text-nordic-muted hover:text-nordic-pearl"
                   }`}
                 >
                   Vista Previa
@@ -580,7 +642,9 @@ export const App: React.FC = () => {
                 <button
                   onClick={() => setNotesViewMode("raw")}
                   className={`text-[11px] px-2.5 py-0.5 rounded-md font-medium transition ${
-                    notesViewMode === "raw" ? "bg-nordic-surfaceLight text-nordic-pearl" : "text-nordic-muted hover:text-nordic-pearl"
+                    notesViewMode === "raw"
+                      ? "bg-nordic-surfaceLight text-nordic-pearl"
+                      : "text-nordic-muted hover:text-nordic-pearl"
                   }`}
                 >
                   Markdown
@@ -590,11 +654,11 @@ export const App: React.FC = () => {
 
             {notesViewMode === "preview" ? (
               <div
-                className="w-full flex-1 min-h-[220px] max-h-[360px] overflow-y-auto bg-nordic-bg/90 border border-nordic-border rounded-xl p-4 text-xs prose prose-invert max-w-none text-slate-200"
+                className="w-full flex-1 min-h-[260px] max-h-[380px] overflow-y-auto bg-nordic-bg/90 border border-nordic-border rounded-xl p-4 text-xs prose prose-invert max-w-none text-slate-200"
                 dangerouslySetInnerHTML={{
                   __html: notesMarkdown
                     ? marked.parse(notesMarkdown)
-                    : "<p class='text-nordic-muted italic'>Los apuntes estructurados con formato Cornell, fórmulas matemáticas y preguntas de examen se generarán aquí al pulsar 'Sintetizar'...</p>",
+                    : "<p class='text-nordic-muted/70 italic'>Los apuntes estructurados (resumen Cornell, definiciones, fórmulas LaTeX y avisos de examen) se presentarán aquí...</p>",
                 }}
               />
             ) : (
@@ -602,7 +666,7 @@ export const App: React.FC = () => {
                 value={notesMarkdown}
                 onChange={(e) => setNotesMarkdown(e.target.value)}
                 placeholder="Código Markdown de los apuntes..."
-                className="w-full flex-1 min-h-[220px] max-h-[360px] bg-nordic-bg/90 border border-nordic-border rounded-xl p-3.5 text-xs font-mono text-slate-300 resize-none focus:outline-none"
+                className="w-full flex-1 min-h-[260px] max-h-[380px] bg-nordic-bg/90 border border-nordic-border rounded-xl p-3.5 text-xs font-mono text-slate-300 resize-none focus:outline-none"
               />
             )}
 
@@ -611,7 +675,7 @@ export const App: React.FC = () => {
               <button
                 onClick={() => handleExport("obsidian")}
                 disabled={isLoading || !notesMarkdown}
-                className="flex-1 min-w-[110px] py-2 bg-nordic-surfaceLight hover:bg-nordic-border border border-nordic-border disabled:opacity-50 text-nordic-aurora text-xs font-medium rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm"
+                className="flex-1 min-w-[110px] py-2 bg-nordic-surfaceLight hover:bg-nordic-border border border-nordic-border/70 disabled:opacity-40 text-nordic-aurora text-xs font-medium rounded-xl transition flex items-center justify-center gap-1.5"
               >
                 <Layers className="w-3.5 h-3.5" />
                 A Obsidian
@@ -619,7 +683,7 @@ export const App: React.FC = () => {
               <button
                 onClick={() => handleExport("latex")}
                 disabled={isLoading || !notesMarkdown}
-                className="flex-1 min-w-[110px] py-2 bg-nordic-surfaceLight hover:bg-nordic-border border border-nordic-border disabled:opacity-50 text-nordic-emerald text-xs font-medium rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm"
+                className="flex-1 min-w-[110px] py-2 bg-nordic-surfaceLight hover:bg-nordic-border border border-nordic-border/70 disabled:opacity-40 text-nordic-emerald text-xs font-medium rounded-xl transition flex items-center justify-center gap-1.5"
               >
                 <FileCode className="w-3.5 h-3.5" />
                 A LaTeX / PDF
@@ -627,7 +691,7 @@ export const App: React.FC = () => {
               <button
                 onClick={() => handleExport("notion")}
                 disabled={isLoading || !notesMarkdown}
-                className="flex-1 min-w-[110px] py-2 bg-nordic-surfaceLight hover:bg-nordic-border border border-nordic-border disabled:opacity-50 text-nordic-gold text-xs font-medium rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm"
+                className="flex-1 min-w-[110px] py-2 bg-nordic-surfaceLight hover:bg-nordic-border border border-nordic-border/70 disabled:opacity-40 text-nordic-gold text-xs font-medium rounded-xl transition flex items-center justify-center gap-1.5"
               >
                 <Database className="w-3.5 h-3.5" />
                 A Notion
@@ -641,8 +705,8 @@ export const App: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="text-center py-4 text-xs text-nordic-muted/60 border-t border-nordic-border/60 relative z-10">
-        Murmur • Nordic Aurora • Whisper + LLM + Model Context Protocol
+      <footer className="text-center py-4 text-xs font-mono text-nordic-muted/50 border-t border-nordic-border/50 relative z-10">
+        Murmur • Dictado en Vivo & Estructuración Automática
       </footer>
     </div>
   );
