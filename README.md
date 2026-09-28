@@ -163,6 +163,14 @@ murmur/
 
 ---
 
+## 👥 Autores y Contribuidores
+
+- **[Ismael Sallami](https://github.com/Ismael-Sallami)** — Arquitectura, motor de audio Whisper, adaptadores MCP y backend.
+- **[Alicia Ruiz](https://github.com/Aliciarg04)** ([@Aliciarg04](https://github.com/Aliciarg04)) — Diseño de interfaz web en modo concentración y experiencia visual.
+
+---
+
 ## 📄 Licencia
 
 Este proyecto está bajo la Licencia **MIT**. Consulta el archivo `LICENSE` para más detalles.
+

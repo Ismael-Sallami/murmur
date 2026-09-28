@@ -10,7 +10,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
-    { name = "Murmur Contributors" }
+    { name = "Ismael Sallami", email = "ismEngineer23@gmail.com" },
+    { name = "Alicia Ruiz", email = "aliciaruigo2004@gmail.com" },
 ]
 keywords = [
     "murmur",
