@@ -1,0 +1,13 @@
+services:
+  murmur:
+    build: .
+    container_name: murmur
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env
+    environment:
+      - AULASCRIBE_HOST=0.0.0.0
+      - AULASCRIBE_PORT=8000

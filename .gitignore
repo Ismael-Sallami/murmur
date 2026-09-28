@@ -1,0 +1,37 @@
+# Entorno virtual
+.venv/
+env/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Datos y audios generados
+data/
+*.webm
+*.mp3
+*.wav
+*.m4a
+
+# Variables de entorno secretas
+.env
+
+# Archivos de build y paquetes
+build/
+dist/
+*.egg-info/
+node_modules/
+target/
+
+# IDEs
+.idea/
+.vscode/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db

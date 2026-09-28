@@ -1,0 +1,51 @@
+name: "Compilación y Release Multiplataforma (Desktop)"
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release-desktop:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-latest" # Genera .dmg y .app (macOS)
+          - platform: "ubuntu-22.04"  # Genera .deb y .AppImage (Linux)
+          - platform: "windows-latest" # Genera .msi y .exe (Windows)
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar Rust estable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Instalar dependencias del sistema (Solo Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libasound2-dev
+
+      - name: Instalar dependencias de Node
+        run: npm install
+
+      - name: Compilar App con Tauri Action
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Murmur ${{ github.ref_name }}"
+          releaseBody: "Descargas oficiales de Murmur para Windows, macOS y Linux."
+          releaseDraft: false
+          prerelease: false
