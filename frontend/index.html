@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Murmur - Apuntes Inteligentes de Clase</title>
   <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <meta name="theme-color" content="#1e293b">
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -50,6 +51,16 @@
 
   <!-- Contenedor Principal -->
   <main class="max-w-4xl mx-auto w-full p-4 sm:p-6 flex-1 space-y-6">
+
+    <!-- Banner de Diagnóstico de Contexto Seguro -->
+    <div id="security-warning-banner" class="hidden bg-amber-950/70 border border-amber-600/70 rounded-2xl p-4 text-xs text-amber-200 flex items-start gap-3 shadow-md">
+      <span class="text-2xl">🔒</span>
+      <div class="space-y-1">
+        <p class="font-bold text-sm text-amber-100">Micrófono restringido por el navegador</p>
+        <p id="security-warning-text">Los navegadores requieren una conexión segura (HTTPS o <code>localhost</code>) para conceder acceso al micrófono.</p>
+        <p id="security-warning-advice" class="font-semibold text-amber-300"></p>
+      </div>
+    </div>
 
     <!-- Tarjeta de Control: Parámetros de la Clase -->
     <div class="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5 shadow-sm space-y-4">

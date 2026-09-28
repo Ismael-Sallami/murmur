@@ -1,7 +1,13 @@
 /**
- * AulaScribe - Controlador Frontend de la PWA
+ * Murmur - Controlador Frontend de la PWA
  * Gestiona la captura de audio en directo, subidas, llamadas a la API y renderizado.
  */
+
+// Si el usuario accede mediante 0.0.0.0, redirigir inmediatamente a localhost
+// para que el navegador active el contexto seguro (Secure Context) y habilite el micrófono.
+if (window.location.hostname === "0.0.0.0") {
+  window.location.replace(window.location.href.replace("0.0.0.0", "localhost"));
+}
 
 let mediaRecorder = null;
 let audioChunks = [];
@@ -39,6 +45,31 @@ const btnExportLatex = document.getElementById("btn-export-latex");
 const btnExportNotion = document.getElementById("btn-export-notion");
 const inputSubject = document.getElementById("input-subject");
 const inputTitle = document.getElementById("input-title");
+const securityWarningBanner = document.getElementById("security-warning-banner");
+const securityWarningAdvice = document.getElementById("security-warning-advice");
+
+// --- Diagnóstico de Soporte de Micrófono ---
+function checkMediaDeviceSupport() {
+  const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const isHttps = window.location.protocol === "https:";
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (securityWarningBanner) {
+      securityWarningBanner.classList.remove("hidden");
+      if (!isLocal && !isHttps) {
+        securityWarningAdvice.textContent = `Estás accediendo desde '${window.location.hostname}' por HTTP no seguro. Los navegadores móviles bloquean el micrófono fuera de HTTPS o localhost. Solución: accede con HTTPS o sube audios pregrabados en la pestaña 'Subir Audio Existente'.`;
+      } else {
+        securityWarningAdvice.textContent = "Abre http://localhost:8000 en lugar de 0.0.0.0 para que el navegador permita el acceso al micrófono.";
+      }
+    }
+    return false;
+  } else if (securityWarningBanner) {
+    securityWarningBanner.classList.add("hidden");
+  }
+  return true;
+}
+
+window.addEventListener("DOMContentLoaded", checkMediaDeviceSupport);
 
 // --- Cambio de Pestañas ---
 tabRecord.addEventListener("click", () => {
@@ -65,6 +96,11 @@ btnToggleRecord.addEventListener("click", async () => {
 });
 
 async function startRecording() {
+  if (!checkMediaDeviceSupport()) {
+    alert("⚠️ El navegador bloquea el micrófono en este contexto no seguro.\n\n• Si estás en este ordenador: abre http://localhost:8000 (no uses 0.0.0.0).\n• Si estás en móvil/tablet: accede mediante HTTPS o usa la pestaña 'Subir Audio Existente'.");
+    return;
+  }
+
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     

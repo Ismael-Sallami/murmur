@@ -23,10 +23,11 @@ data/
 
 # Archivos de build y paquetes
 build/
-dist/
+/dist/
 *.egg-info/
 node_modules/
 target/
+!frontend/dist/
 
 # IDEs
 .idea/
