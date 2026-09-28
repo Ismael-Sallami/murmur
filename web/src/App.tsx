@@ -27,6 +27,7 @@ import { StructuredFilesExplorer } from "./components/StructuredFilesExplorer";
 import { ScrollTimeline } from "./components/ScrollTimeline";
 import { PipelineShowcase } from "./components/PipelineShowcase";
 import { InteractiveCard } from "./components/InteractiveCard";
+import { AudioConversionHero } from "./components/AudioConversionHero";
 import { soundScape } from "./audio/soundScape";
 import { useLiveSpeech } from "./hooks/useLiveSpeech";
 import { useScrollProgress } from "./hooks/useScrollProgress";
@@ -372,46 +373,24 @@ export const App: React.FC = () => {
   const totalWords = (liveTranscript ? liveTranscript.trim().split(/\s+/).length : 0);
 
   return (
-    <div className="min-h-screen bg-[#0A0F1D] text-slate-100 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#00F0FF]/25 selection:text-[#00F0FF]">
-      {/* Fondo Atmosférico Boreal con Parallax Reactivo a Scroll */}
-      <MurmurBackground isOrdered={isOrderedState} scrollY={scrollMetrics.scrollY} />
-
-      {/* Línea de Tiempo Superior y HUD de Scroll */}
-      <ScrollTimeline metrics={scrollMetrics} />
-
-      {/* Notificación Toast Flotante */}
-      {toast && (
-        <div
-          className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl shadow-2xl text-xs font-semibold flex items-center gap-2.5 border backdrop-blur-md transition-all ${
-            toast.type === "success"
-              ? "bg-[#0F172A]/95 text-[#10B981] border-[#10B981]/50 shadow-emerald-950/40"
-              : toast.type === "error"
-              ? "bg-rose-950/95 text-rose-300 border-rose-700 shadow-rose-950/40"
-              : "bg-[#0F172A]/95 text-[#00F0FF] border-[#00F0FF]/50 shadow-teal-950/40"
-          }`}
-        >
-          <span>{toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : "ℹ"}</span>
-          <span>{toast.message}</span>
-        </div>
-      )}
-
-      {/* Barra Superior de Estudio con efecto Glassmorphism */}
-      <header className="glass-panel sticky top-0 z-40 px-5 py-3.5 border-b border-sky-500/15">
+    <div className="min-h-screen bg-white text-slate-800 flex flex-col font-sans relative overflow-x-hidden selection:bg-blue-600 selection:text-white">
+      {/* Barra Superior de Estudio - Murmur Azul y Blanco */}
+      <header className="sticky top-0 z-40 px-5 py-3.5 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#00F0FF]/20 via-[#10B981]/20 to-teal-500/20 border border-[#00F0FF]/40 flex items-center justify-center text-[#00F0FF] shadow-lg shadow-teal-950/30">
-              <Radio className="w-5 h-5 animate-pulse" />
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25">
+              <Mic className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold tracking-tight text-white font-mono">
-                  MURMUR
+                <h1 className="text-xl font-extrabold tracking-tight text-blue-600 font-sans">
+                  Murmur
                 </h1>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-[#00F0FF]/10 text-[#00F0FF] border border-[#00F0FF]/30">
-                  Estudio Nórdico
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  Academic AI
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-sans">Del Murmullo al Orden • Transcripción & Apuntes</p>
+              <p className="text-[11px] text-slate-500 font-sans">No escribas, solo escucha · Transcripción Whisper & Apuntes Cornell</p>
             </div>
           </div>
 
@@ -421,17 +400,17 @@ export const App: React.FC = () => {
               onClick={toggleAmbientAudio}
               className={`px-3 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-2 transition ${
                 ambientAudioActive
-                  ? "bg-[#00F0FF]/20 text-[#00F0FF] border-[#00F0FF]/50 shadow-md shadow-teal-950/40"
-                  : "bg-slate-900/60 text-slate-400 border-slate-800 hover:text-white"
+                  ? "bg-blue-50 text-blue-700 border-blue-300 shadow-sm"
+                  : "bg-slate-100 text-slate-600 border-slate-200 hover:text-slate-900"
               }`}
               title="Activar murmullo sutil de fondo para concentración"
             >
-              {ambientAudioActive ? <Volume2 className="w-3.5 h-3.5 text-[#00F0FF] animate-pulse" /> : <VolumeX className="w-3.5 h-3.5" />}
+              {ambientAudioActive ? <Volume2 className="w-3.5 h-3.5 text-blue-600 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5" />}
               <span>Murmullo Zen</span>
             </button>
 
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium bg-slate-900/80 text-[#10B981] border border-[#10B981]/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-ping"></span>
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
               En Línea
             </span>
           </div>
@@ -440,6 +419,12 @@ export const App: React.FC = () => {
 
       {/* Contenedor Principal */}
       <main className="max-w-6xl mx-auto w-full p-4 sm:p-6 flex-1 space-y-8 relative z-10">
+        {/* Audio to Text Conversion Hero (Estilo Wispr Flow) */}
+        <AudioConversionHero 
+          onStartRecording={() => window.scrollTo({ top: 700, behavior: 'smooth' })}
+          onExploreFiles={() => window.scrollTo({ top: 1100, behavior: 'smooth' })}
+        />
+
         <SecurityNotice />
 
         {/* Parámetros de la Clase (Estilo Barra Minimalista) */}
