@@ -122,14 +122,23 @@ NOTION_DATABASE_ID=...
 
 ---
 
-## 📱 Uso en el Aula
+## 📱 Uso en el Aula y Conexión Móvil
 
-1. **Abre Murmur en el móvil o tablet:** Accede a la URL del servidor y dale a *"Añadir a pantalla de inicio"* para instalarlo como PWA.
-2. **Configura la clase:** Escribe la asignatura (ej. *Cálculo II*) y el tema de hoy.
-3. **Pulsa "Iniciar Grabación":** Deja el dispositivo sobre el pupitre. El sistema grabará en códec Opus de bajo consumo y enviará fragmentos protegidos contra apagados accidentales.
-4. **Finaliza la clase:** Pulsa "Finalizar Grabación".
-5. **Genera los apuntes:** En segundos obtendrás la transcripción y los apuntes estructurados.
-6. **Exporta:** Pulsa *"A Obsidian"*, *"A LaTeX / PDF"* o *"A Notion"*.
+1. **Inicia Murmur con soporte SSL en tu PC:**
+   ```bash
+   murmur --ssl
+   ```
+   > **Nota de seguridad:** Los navegadores móviles (Chrome en Android y Safari en iOS) requieren una conexión segura (HTTPS) para habilitar el acceso al micrófono en redes locales. Murmur genera automáticamente un certificado local autofirmado para tu red.
+
+2. **Abre Murmur en tu móvil o tablet:**
+   - Conéctate a la misma red Wi-Fi que tu PC (o mediante VPN como Tailscale).
+   - Abre el navegador y accede a `https://<IP_DE_TU_PC>:8000` (ejemplo: `https://172.17.64.141:8000`).
+   - Acepta la excepción del certificado local en la primera conexión.
+
+3. **Configura la clase:** Escribe la asignatura (ej. *Cálculo II*) y el tema.
+4. **Pulsa "Iniciar Dictado en Vivo":** Concede permiso de micrófono en el móvil y déjalo sobre el pupitre. El sistema transmitirá la voz en tiempo real con códec Opus de alta fidelidad.
+5. **Finaliza y Estructura:** Pulsa "Finalizar y Estructurar Ficheros". Murmur organizará automáticamente en tu PC la transcripción literal, apuntes Cornell, fórmulas LaTeX y metadatos en `data/clases/`.
+6. **Exporta y Sincroniza:** Envía las notas a tu Vault de Obsidian, compila a PDF académico o crea una página en Notion mediante MCP con un solo clic.
 
 ---
 
