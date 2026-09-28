@@ -33,17 +33,17 @@ export const SecurityNotice: React.FC = () => {
   if (!showNotice) return null;
 
   return (
-    <div className="bg-amber-950/80 border border-amber-600/60 rounded-2xl p-4 text-xs text-amber-200 flex items-start gap-3 shadow-lg backdrop-blur-sm animate-fade-in">
-      <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+    <div className="bg-peach/10 border border-peach/40 rounded-2xl p-4 text-sm text-chalk-soft flex items-start gap-3 animate-fade-up">
+      <ShieldAlert className="w-5 h-5 text-peach shrink-0 mt-0.5" />
       <div className="space-y-1.5 flex-1">
-        <p className="font-bold text-sm text-amber-100">
+        <p className="font-bold text-chalk">
           Contexto de Seguridad del Navegador
         </p>
-        <p className="text-amber-200/90 leading-relaxed">{adviceText}</p>
+        <p className="text-chalk-soft leading-relaxed">{adviceText}</p>
         {window.location.hostname !== "localhost" && (
           <a
             href={`http://localhost:${window.location.port || 8000}`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition mt-1"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-mint hover:bg-mint-deep text-night font-bold rounded-full transition mt-1"
           >
             Abrir en localhost:{window.location.port || 8000}
             <ArrowRight className="w-3.5 h-3.5" />

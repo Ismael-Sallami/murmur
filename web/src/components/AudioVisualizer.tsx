@@ -7,11 +7,10 @@ interface AudioVisualizerProps {
 
 /**
  * Componente `AudioVisualizer`:
- * Renderiza el espectro de frecuencias de la voz con estética 'Nordic Aurora'
- * y retroalimentación analítica en tiempo real:
- * - 42 bandas de frecuencia con gradiente de tres tonos (#00F0FF -> #10B981 -> #818CF8).
- * - Efecto de resplandor reactivo (glow) dinámico que aumenta con la intensidad vocal.
- * - Modo reposo orgánico que simula la brisa ártica mediante oscilaciones armónicas.
+ * Renderiza el espectro de frecuencias de la voz como barras de tinta dentro
+ * de una píldora, con retroalimentación en tiempo real:
+ * - 42 bandas de frecuencia redondeadas.
+ * - Modo reposo orgánico mediante oscilaciones armónicas.
  * - Telemetría de señal (dB promedio y frecuencia muestral).
  */
 export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ isRecording, stream }) => {
@@ -79,15 +78,7 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ isRecording, s
           const x = i * (barWidth + 2) + 3;
           const y = midY - barHeight / 2;
 
-          // Gradiente cromático nórdico
-          const grad = ctx.createLinearGradient(0, y, 0, y + barHeight);
-          grad.addColorStop(0, "#00F0FF"); // Cyan Boreal
-          grad.addColorStop(0.5, "#10B981"); // Esmeralda
-          grad.addColorStop(1, "#818CF8"); // Iris profundo
-
-          ctx.shadowBlur = val > 90 ? 14 : 3;
-          ctx.shadowColor = "#00F0FF";
-          ctx.fillStyle = grad;
+          ctx.fillStyle = "#A8E6CF";
 
           ctx.beginPath();
           ctx.roundRect(x, y, barWidth, barHeight, 2.5);
@@ -95,7 +86,6 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ isRecording, s
         }
       } else {
         // Modo reposo: respiración armónica
-        ctx.shadowBlur = 0;
         const time = Date.now() / 700;
 
         for (let i = 0; i < totalBars; i++) {
@@ -104,7 +94,7 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ isRecording, s
           const x = i * (barWidth + 2) + 3;
           const y = midY - barHeight / 2;
 
-          ctx.fillStyle = "rgba(0, 240, 255, 0.18)";
+          ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
           ctx.beginPath();
           ctx.roundRect(x, y, barWidth, barHeight, 2);
           ctx.fill();
@@ -124,18 +114,18 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ isRecording, s
 
   return (
     <div className="w-full flex flex-col items-center justify-center space-y-2">
-      <div className="relative w-full max-w-lg">
+      <div className="relative w-full max-w-md">
         <canvas
           ref={canvasRef}
           width={520}
-          height={70}
-          className="w-full h-16 bg-[#0A0F1D]/80 rounded-2xl border border-sky-500/20 px-2 backdrop-blur-md shadow-inner shadow-black/40"
+          height={80}
+          className="w-full h-20 bg-night rounded-lg border border-white/10 px-4"
         />
 
-        {/* Telemetría sobreimpresionada */}
-        <div className="absolute top-1.5 right-3 flex items-center gap-2 pointer-events-none text-[9px] font-mono text-slate-400">
-          <span>{isRecording ? `${signalDb} dBFS` : "STANDBY"}</span>
-          <span className="w-1 h-1 rounded-full bg-[#00F0FF]" />
+        {/* Telemetría */}
+        <div className="mt-2 flex items-center justify-center gap-2 pointer-events-none text-[11px] font-mono text-chalk-muted">
+          <span>{isRecording ? `${signalDb} dBFS` : "EN ESPERA"}</span>
+          <span className="w-1 h-1 rounded-full bg-chalk-faint" />
           <span>48 kHz</span>
         </div>
       </div>

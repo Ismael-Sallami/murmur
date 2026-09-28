@@ -4,58 +4,82 @@ export default {
     "./web/index.html",
     "./web/src/**/*.{js,ts,jsx,tsx}",
   ],
-  darkMode: "class",
   theme: {
     extend: {
       colors: {
-        nordic: {
-          bg: "#0A0F1D",
-          surface: "#0F172A",
-          surfaceLight: "#1E293B",
-          border: "rgba(56, 189, 248, 0.15)",
-          aurora: "#00F0FF",
-          emerald: "#10B981",
-          iris: "#818CF8",
-          sky: "#38BDF8",
-          gold: "#F59E0B",
-          pearl: "#F8FAFC",
-          muted: "#94A3B8",
+        night: {
+          DEFAULT: "#0F1220",
+          soft: "#161A2C",
+          deep: "#1E2338",
         },
+        chalk: {
+          DEFAULT: "#ECEAF4",
+          soft: "#C3C1D6",
+          muted: "#8C8AA6",
+          faint: "#585A74",
+        },
+        mint: {
+          DEFAULT: "#A8E6CF",
+          deep: "#92D9BE",
+        },
+        lilac: {
+          DEFAULT: "#B9A7F2",
+          light: "#CBBDF7",
+        },
+        mist: "#8EB8E6",
+        dusk: "#7C6FD1",
+        peach: "#F4B393",
       },
       fontFamily: {
-        mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "monospace"],
-        sans: ["Plus Jakarta Sans", "Inter", "system-ui", "sans-serif"],
-        display: ["Space Grotesk", "sans-serif"],
+        display: ["Bricolage Grotesque", "Figtree", "system-ui", "sans-serif"],
+        sans: ["Figtree", "Inter", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
       },
       keyframes: {
         float: {
           "0%, 100%": { transform: "translateY(0px)" },
           "50%": { transform: "translateY(-8px)" },
         },
-        "aurora-slow": {
-          "0%, 100%": { transform: "translate(0, 0) scale(1)" },
-          "50%": { transform: "translate(20px, -25px) scale(1.08)" },
+        wave: {
+          "0%, 100%": { transform: "scaleY(0.3)" },
+          "50%": { transform: "scaleY(1)" },
         },
-        "aurora-reverse": {
-          "0%, 100%": { transform: "translate(0, 0) scale(1)" },
-          "50%": { transform: "translate(-25px, 20px) scale(1.06)" },
+        bob: {
+          "0%, 100%": { transform: "translateY(0) rotate(-1deg)" },
+          "50%": { transform: "translateY(-5px) rotate(1deg)" },
         },
-        "pulse-glow": {
-          "0%, 100%": { opacity: "0.4", filter: "drop-shadow(0 0 15px rgba(0, 240, 255, 0.3))" },
-          "50%": { opacity: "0.85", filter: "drop-shadow(0 0 28px rgba(16, 185, 129, 0.5))" },
+        note: {
+          "0%": { transform: "translate(0, 0) rotate(0deg) scale(0.6)", opacity: "0" },
+          "15%": { opacity: "1" },
+          "100%": { transform: "translate(var(--dx), -170px) rotate(var(--rot)) scale(1.15)", opacity: "0" },
         },
-        shimmer: {
-          "0%": { backgroundPosition: "-200% 0" },
-          "100%": { backgroundPosition: "200% 0" },
+        beat: {
+          "0%, 100%": { transform: "scale(1)" },
+          "12%": { transform: "scale(1.03)" },
+          "30%": { transform: "scale(1)" },
+        },
+        ring: {
+          "0%": { transform: "scale(0.9)", opacity: "0.45" },
+          "100%": { transform: "scale(1.7)", opacity: "0" },
+        },
+        progress: {
+          from: { width: "8%" },
+          to: { width: "92%" },
+        },
+        "gradient-x": {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+        },
+        "fade-up": {
+          from: { opacity: "0", transform: "translateY(16px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
         },
       },
       animation: {
-        float: "float 6s ease-in-out infinite",
-        "float-delayed": "float 7s ease-in-out 2s infinite",
-        "aurora-slow": "aurora-slow 18s ease-in-out infinite",
-        "aurora-reverse": "aurora-reverse 22s ease-in-out infinite",
-        "pulse-glow": "pulse-glow 4s ease-in-out infinite",
-        shimmer: "shimmer 3s infinite linear",
+        wave: "wave 1.6s ease-in-out infinite",
+        bob: "bob 4s ease-in-out infinite",
+        note: "note 6s ease-out infinite",
+        "fade-up": "fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) both",
       },
     },
   },
