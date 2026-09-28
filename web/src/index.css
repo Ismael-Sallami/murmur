@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,55 +7,79 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    color-scheme: dark;
   }
   body {
-    @apply bg-[#0A0F1D] text-slate-100 font-sans selection:bg-[#00F0FF]/25 selection:text-[#00F0FF];
+    @apply bg-night text-chalk font-sans antialiased selection:bg-mint selection:text-night;
   }
 }
 
-/* Scrollbar estilizada nórdica */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0A0F1D;
+  background: #0F1220;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(56, 189, 248, 0.25);
-  border-radius: 9999px;
-  border: 1px solid rgba(0, 240, 255, 0.1);
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 240, 255, 0.5);
+  background: #2A2F48;
+  border-radius: 4px;
 }
 
-/* Efectos Glassmórficos y Rim Highlights */
-.glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(56, 189, 248, 0.14);
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+@layer components {
+  .night-card {
+    @apply bg-night-soft border border-white/[0.08] rounded-xl;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-mint text-night font-semibold text-base transition-colors hover:bg-mint-deep disabled:opacity-40 disabled:pointer-events-none;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg border border-white/10 text-chalk-soft text-sm transition-colors hover:border-white/25 hover:text-chalk disabled:opacity-40 disabled:pointer-events-none;
+  }
+
+  .field {
+    @apply w-full bg-night border border-white/10 rounded-lg px-3.5 py-2.5 text-[15px] text-chalk placeholder:text-chalk-faint focus:outline-none focus:border-mint/60 transition-colors;
+  }
+
+  .field-label {
+    @apply block mb-1.5 text-sm text-chalk-muted;
+  }
+
+  .section-title {
+    @apply font-display font-semibold text-3xl sm:text-[2.5rem] leading-tight tracking-[-0.01em] text-chalk;
+  }
 }
 
-.glass-panel-elevated {
-  background: rgba(30, 41, 59, 0.7);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  border: 1px solid rgba(0, 240, 255, 0.22);
-  box-shadow: 0 20px 40px -15px rgba(0, 240, 255, 0.08), inset 0 1px 0 0 rgba(0, 240, 255, 0.2);
+/* Tipografía de los apuntes generados (Markdown renderizado) */
+.notes-prose {
+  @apply text-[15px] leading-relaxed text-chalk-soft;
 }
-
-/* Utilidad para elementos que revelan al hacer scroll */
-.scroll-reveal {
-  opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: opacity, transform;
+.notes-prose h1,
+.notes-prose h2,
+.notes-prose h3 {
+  @apply font-display font-semibold text-chalk mt-5 mb-2 leading-tight;
 }
+.notes-prose h1 { @apply text-2xl; }
+.notes-prose h2 { @apply text-xl; }
+.notes-prose h3 { @apply text-lg text-mint; }
+.notes-prose p { @apply my-2; }
+.notes-prose ul { @apply list-disc pl-5 my-2 space-y-1 marker:text-chalk-faint; }
+.notes-prose ol { @apply list-decimal pl-5 my-2 space-y-1 marker:text-chalk-faint; }
+.notes-prose strong { @apply text-chalk font-semibold; }
+.notes-prose code { @apply font-mono text-[13px] bg-night-deep px-1.5 py-0.5 rounded; }
+.notes-prose pre { @apply bg-night-deep p-3 rounded-lg overflow-x-auto my-3; }
+.notes-prose blockquote { @apply border-l-2 border-peach/60 pl-4 text-chalk-muted my-3; }
+.notes-prose table { @apply w-full text-sm border-collapse my-3; }
+.notes-prose th,
+.notes-prose td { @apply border border-white/10 px-2 py-1 text-left; }
+.notes-prose hr { @apply border-white/10 my-4; }
 
-.scroll-reveal.visible {
-  opacity: 1;
-  transform: translateY(0);
+@media (prefers-reduced-motion: reduce) {
+  .animate-wave,
+  .animate-bob,
+  .animate-note {
+    animation: none !important;
+  }
 }

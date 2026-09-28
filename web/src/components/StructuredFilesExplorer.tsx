@@ -7,8 +7,6 @@ import {
   ChevronRight,
   FileCode,
   FileSpreadsheet,
-  HardDrive,
-  ExternalLink,
 } from "lucide-react";
 
 interface StructuredFile {
@@ -67,142 +65,97 @@ export const StructuredFilesExplorer: React.FC<{ refreshTrigger?: number }> = ({
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
+
   const getFileBadge = (ext: string) => {
     switch (ext) {
       case ".md":
-        return {
-          icon: <FileText className="w-3.5 h-3.5 text-[#00F0FF]" />,
-          label: "Markdown Cornell",
-          color: "text-[#00F0FF] border-[#00F0FF]/30 bg-[#00F0FF]/10",
-        };
+        return { icon: <FileText className="w-4 h-4 text-mint" />, label: "Markdown Cornell" };
       case ".tex":
-        return {
-          icon: <FileCode className="w-3.5 h-3.5 text-[#10B981]" />,
-          label: "LaTeX Fuente",
-          color: "text-[#10B981] border-[#10B981]/30 bg-[#10B981]/10",
-        };
+        return { icon: <FileCode className="w-4 h-4 text-mist" />, label: "LaTeX" };
       case ".pdf":
-        return {
-          icon: <FileSpreadsheet className="w-3.5 h-3.5 text-rose-400" />,
-          label: "Documento PDF",
-          color: "text-rose-400 border-rose-500/30 bg-rose-500/10",
-        };
+        return { icon: <FileSpreadsheet className="w-4 h-4 text-lilac" />, label: "PDF" };
       case ".json":
         return {
-          icon: <span className="text-[10px] font-mono font-bold text-amber-400">{"{}"}</span>,
-          label: "Metadatos JSON",
-          color: "text-amber-400 border-amber-500/30 bg-amber-500/10",
+          icon: <span className="text-[11px] font-mono font-bold text-peach">{"{}"}</span>,
+          label: "Metadatos",
         };
       default:
-        return {
-          icon: <FileText className="w-3.5 h-3.5 text-slate-400" />,
-          label: "Archivo",
-          color: "text-slate-400 border-slate-700 bg-slate-800",
-        };
+        return { icon: <FileText className="w-4 h-4 text-chalk-muted" />, label: "Archivo" };
     }
   };
 
   return (
-    <section id="seccion-ficheros" className="space-y-4 pt-2">
-      <div className="glass-panel rounded-3xl p-6 sm:p-7 space-y-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#00F0FF]/10 border border-[#00F0FF]/30 flex items-center justify-center text-[#00F0FF]">
-              <HardDrive className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold tracking-tight text-white uppercase font-mono">
-                  Bóveda de Archivos Estructurados
-                </h3>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/40 font-mono">
-                  Auto-Sync
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Archivos generados en tu disco local bajo <code className="text-slate-300 font-mono">data/clases/</code>
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={fetchTree}
-            disabled={loading}
-            className="text-xs text-slate-400 hover:text-[#00F0FF] transition flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-[#00F0FF]/40 bg-slate-900/60"
-            title="Sincronizar explorador"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Refrescar</span>
-          </button>
+    <section id="seccion-ficheros" className="scroll-mt-24">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h2 className="section-title">Tus archivos</h2>
+          <p className="mt-2 text-chalk-muted">
+            Guardados en <code className="font-mono text-[13px] text-chalk-soft">data/clases/</code>, una carpeta por asignatura.
+          </p>
         </div>
+        <button onClick={fetchTree} disabled={loading} className="btn-ghost shrink-0" title="Volver a leer la carpeta">
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          <span className="hidden sm:inline">Refrescar</span>
+        </button>
+      </div>
 
+      <div className="night-card mt-8 p-4 sm:p-6">
         {tree.length === 0 ? (
-          <div className="text-center py-10 text-xs text-slate-400 border border-dashed border-slate-800 rounded-2xl bg-slate-950/40">
-            <Folder className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-50" />
-            <p className="font-semibold text-slate-300">Aún no hay archivos generados</p>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Finaliza un dictado en vivo o sube una grabación para catalogar apuntes en esta bóveda.
+          <div className="text-center py-12 border border-dashed border-white/10 rounded-lg">
+            <Folder className="w-8 h-8 text-chalk-faint mx-auto mb-3" />
+            <p className="font-display font-semibold text-lg text-chalk">Aún no hay apuntes</p>
+            <p className="text-sm text-chalk-muted mt-1">
+              Termina un dictado o sube una grabación y aparecerán aquí.
             </p>
           </div>
         ) : (
-          <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
             {tree.map((folder) => {
               const isExpanded = expandedSubject === folder.subject;
               return (
-                <div
-                  key={folder.subject}
-                  className="border border-slate-800/80 rounded-2xl overflow-hidden bg-slate-950/40 transition-all duration-300"
-                >
+                <div key={folder.subject} className="border border-white/[0.08] rounded-lg overflow-hidden">
                   <button
                     onClick={() => setExpandedSubject(isExpanded ? null : folder.subject)}
-                    className="w-full px-4 py-3 text-left flex items-center justify-between text-xs font-semibold text-slate-200 hover:bg-slate-900/60 transition"
+                    className="w-full px-4 py-3.5 text-left flex items-center justify-between hover:bg-night-soft transition"
                   >
                     <div className="flex items-center gap-2.5">
                       <ChevronRight
-                        className={`w-4 h-4 transition-transform text-[#00F0FF] ${
-                          isExpanded ? "rotate-90" : ""
-                        }`}
+                        className={`w-4 h-4 text-chalk-muted transition-transform ${isExpanded ? "rotate-90" : ""}`}
                       />
-                      <Folder className="w-4 h-4 text-sky-400 fill-sky-400/20" />
-                      <span className="font-mono text-sm tracking-tight text-white">{folder.subject}</span>
+                      <Folder className="w-4 h-4 text-lilac" />
+                      <span className="font-display font-semibold text-lg text-chalk">{folder.subject}</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-mono bg-slate-900/90 px-2.5 py-1 rounded-md border border-slate-800">
+                    <span className="text-xs text-chalk-muted px-2.5 py-1 rounded-full border border-white/10">
                       {folder.file_count} archivos
                     </span>
                   </button>
 
                   {isExpanded && (
-                    <div className="px-4 pb-3 pt-1 space-y-2 border-t border-slate-800/60 bg-slate-900/20">
+                    <div className="px-4 pb-4 pt-1 space-y-2 border-t border-white/5">
                       {folder.files.map((file) => {
                         const badge = getFileBadge(file.extension);
                         return (
                           <div
                             key={file.path}
-                            className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800/70 hover:border-[#00F0FF]/30 transition group"
+                            className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-night-soft border border-transparent hover:border-white/10 transition group"
                           >
-                            <div className="flex items-center gap-2.5 min-w-0 pr-3">
+                            <div className="flex items-center gap-3 min-w-0 pr-3">
                               {badge.icon}
                               <div className="min-w-0">
-                                <p className="truncate font-mono text-xs text-slate-200 group-hover:text-white font-medium">
-                                  {file.name}
-                                </p>
-                                <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${badge.color} inline-block mt-0.5`}>
-                                  {badge.label}
-                                </span>
+                                <p className="truncate text-sm text-chalk font-medium">{file.name}</p>
+                                <span className="text-xs text-chalk-muted">{badge.label}</span>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-3 shrink-0">
-                              <span className="text-[10px] text-slate-400 font-mono">
-                                {formatBytes(file.size_bytes)}
-                              </span>
+                              <span className="text-xs text-chalk-muted font-mono">{formatBytes(file.size_bytes)}</span>
                               <a
                                 href={`/api/files/download?file_path=${encodeURIComponent(file.path)}`}
                                 download
-                                className="p-1.5 text-slate-400 hover:text-[#00F0FF] hover:bg-[#00F0FF]/15 rounded-lg transition border border-transparent hover:border-[#00F0FF]/30"
-                                title="Descargar fichero directo"
+                                className="p-2 text-chalk-muted hover:text-chalk hover:bg-mint/15 hover:text-mint rounded-lg transition"
+                                title="Descargar fichero"
                               >
-                                <Download className="w-3.5 h-3.5" />
+                                <Download className="w-4 h-4" />
                               </a>
                             </div>
                           </div>

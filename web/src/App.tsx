@@ -3,37 +3,26 @@ import {
   Mic,
   Square,
   Upload,
-  Sparkles,
   FileText,
   BookOpen,
   Copy,
   Check,
-  Radio,
   Layers,
   FileCode,
   Database,
   Volume2,
   VolumeX,
-  Compass,
-  ArrowRight,
-  FolderOpen,
-  Zap,
 } from "lucide-react";
 import { marked } from "marked";
 import { AudioVisualizer } from "./components/AudioVisualizer";
 import { SecurityNotice } from "./components/SecurityNotice";
-import { MurmurBackground } from "./components/MurmurBackground";
 import { StructuredFilesExplorer } from "./components/StructuredFilesExplorer";
-import { ScrollTimeline } from "./components/ScrollTimeline";
 import { PipelineShowcase } from "./components/PipelineShowcase";
-import { InteractiveCard } from "./components/InteractiveCard";
+import { Hero } from "./components/Hero";
 import { soundScape } from "./audio/soundScape";
 import { useLiveSpeech } from "./hooks/useLiveSpeech";
-import { useScrollProgress } from "./hooks/useScrollProgress";
 
 export const App: React.FC = () => {
-  // Telemetría y estado de desplazamiento por scroll (Parallax a 60fps)
-  const scrollMetrics = useScrollProgress();
 
   // Parámetros de la sesión
   const [subject, setSubject] = useState("Física Teórica");
@@ -371,371 +360,284 @@ export const App: React.FC = () => {
 
   const totalWords = (liveTranscript ? liveTranscript.trim().split(/\s+/).length : 0);
 
+  const scrollToConsole = () => {
+    document.getElementById("seccion-consola")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const exportTargets = [
+    { key: "obsidian" as const, label: "Obsidian", icon: Layers },
+    { key: "latex" as const, label: "LaTeX / PDF", icon: FileCode },
+    { key: "notion" as const, label: "Notion", icon: Database },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#0A0F1D] text-slate-100 flex flex-col font-sans relative overflow-x-hidden selection:bg-[#00F0FF]/25 selection:text-[#00F0FF]">
-      {/* Fondo Atmosférico Boreal con Parallax Reactivo a Scroll */}
-      <MurmurBackground isOrdered={isOrderedState} scrollY={scrollMetrics.scrollY} />
-
-      {/* Línea de Tiempo Superior y HUD de Scroll */}
-      <ScrollTimeline metrics={scrollMetrics} />
-
-      {/* Notificación Toast Flotante */}
+    <div className="min-h-screen bg-night text-chalk flex flex-col font-sans">
+      {/* Notificación Toast */}
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl shadow-2xl text-xs font-semibold flex items-center gap-2.5 border backdrop-blur-md transition-all ${
+          className={`fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-lg text-sm flex items-start gap-2.5 border ${
             toast.type === "success"
-              ? "bg-[#0F172A]/95 text-[#10B981] border-[#10B981]/50 shadow-emerald-950/40"
+              ? "bg-night-deep text-mint border-mint/30"
               : toast.type === "error"
-              ? "bg-rose-950/95 text-rose-300 border-rose-700 shadow-rose-950/40"
-              : "bg-[#0F172A]/95 text-[#00F0FF] border-[#00F0FF]/50 shadow-teal-950/40"
+              ? "bg-night-deep text-rose-300 border-rose-400/30"
+              : "bg-night-deep text-chalk-soft border-white/10"
           }`}
         >
-          <span>{toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : "ℹ"}</span>
           <span>{toast.message}</span>
         </div>
       )}
 
-      {/* Barra Superior de Estudio con efecto Glassmorphism */}
-      <header className="glass-panel sticky top-0 z-40 px-5 py-3.5 border-b border-sky-500/15">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#00F0FF]/20 via-[#10B981]/20 to-teal-500/20 border border-[#00F0FF]/40 flex items-center justify-center text-[#00F0FF] shadow-lg shadow-teal-950/30">
-              <Radio className="w-5 h-5 animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold tracking-tight text-white font-mono">
-                  MURMUR
-                </h1>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-[#00F0FF]/10 text-[#00F0FF] border border-[#00F0FF]/30">
-                  Estudio Nórdico
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 font-sans">Del Murmullo al Orden • Transcripción & Apuntes</p>
-            </div>
-          </div>
+      {/* Barra superior */}
+      <header className="border-b border-white/[0.06]">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-4 px-5 sm:px-6 h-16">
+          <a href="#" className="font-display font-semibold text-xl text-chalk">
+            murmur
+          </a>
 
-          <div className="flex items-center gap-3">
-            {/* Control Sonoro: Murmullo Calmo */}
-            <button
-              onClick={toggleAmbientAudio}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-2 transition ${
-                ambientAudioActive
-                  ? "bg-[#00F0FF]/20 text-[#00F0FF] border-[#00F0FF]/50 shadow-md shadow-teal-950/40"
-                  : "bg-slate-900/60 text-slate-400 border-slate-800 hover:text-white"
-              }`}
-              title="Activar murmullo sutil de fondo para concentración"
-            >
-              {ambientAudioActive ? <Volume2 className="w-3.5 h-3.5 text-[#00F0FF] animate-pulse" /> : <VolumeX className="w-3.5 h-3.5" />}
-              <span>Murmullo Zen</span>
-            </button>
+          <nav className="hidden md:flex items-center gap-7 text-sm text-chalk-muted">
+            <a href="#seccion-consola" className="hover:text-chalk transition-colors">Grabar</a>
+            <a href="#seccion-apuntes" className="hover:text-chalk transition-colors">Apuntes</a>
+            <a href="#seccion-pipeline" className="hover:text-chalk transition-colors">Cómo funciona</a>
+            <a href="#seccion-ficheros" className="hover:text-chalk transition-colors">Archivos</a>
+          </nav>
 
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium bg-slate-900/80 text-[#10B981] border border-[#10B981]/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-ping"></span>
-              En Línea
-            </span>
-          </div>
+          <button
+            onClick={toggleAmbientAudio}
+            className={`flex items-center gap-2 text-sm transition-colors ${
+              ambientAudioActive ? "text-mint" : "text-chalk-muted hover:text-chalk"
+            }`}
+            title="Sonido de fondo para concentrarte"
+          >
+            {ambientAudioActive ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            <span className="hidden sm:inline">Ruido de fondo</span>
+          </button>
         </div>
       </header>
 
-      {/* Contenedor Principal */}
-      <main className="max-w-6xl mx-auto w-full p-4 sm:p-6 flex-1 space-y-8 relative z-10">
+      <Hero onStart={scrollToConsole} />
+
+      <main className="max-w-5xl mx-auto w-full px-5 sm:px-6 pb-24 flex-1 space-y-24">
         <SecurityNotice />
 
-        {/* Parámetros de la Clase (Estilo Barra Minimalista) */}
-        <div className="bg-nordic-surface/70 border border-nordic-border/80 rounded-2xl p-4 backdrop-blur-xl shadow-lg">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-mono uppercase tracking-wider text-nordic-muted mb-1">
-                Asignatura / Materia
+        {/* Grabación */}
+        <section id="seccion-consola" className="scroll-mt-8">
+          <h2 className="section-title">Grabar</h2>
+          <p className="mt-2 text-chalk-muted">Pon el nombre de la asignatura y el tema para que se guarde en su carpeta.</p>
+
+          <div className="night-card mt-8 p-5 sm:p-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="block">
+                <span className="field-label">Asignatura</span>
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Física Teórica"
+                  className="field"
+                />
               </label>
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Ej. Física Teórica, Análisis Matemático..."
-                className="w-full bg-nordic-bg/80 border border-nordic-border/80 rounded-xl px-3.5 py-2 text-xs font-medium text-nordic-pearl focus:outline-none focus:border-nordic-aurora focus:ring-1 focus:ring-nordic-aurora transition"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-mono uppercase tracking-wider text-nordic-muted mb-1">
-                Tema / Sesión
+              <label className="block">
+                <span className="field-label">Tema</span>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Tema 1: Termodinámica"
+                  className="field"
+                />
               </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ej. Tema 1: Leyes de la Termodinámica..."
-                className="w-full bg-nordic-bg/80 border border-nordic-border/80 rounded-xl px-3.5 py-2 text-xs font-medium text-nordic-pearl focus:outline-none focus:border-nordic-aurora focus:ring-1 focus:ring-nordic-aurora transition"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Consola Principal: Grabación en Vivo / Subida */}
-        <section
-          id="seccion-consola"
-          className="glass-panel-elevated rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl relative overflow-hidden transition-all duration-300 hover:border-[#00F0FF]/40"
-        >
-          {/* Luz de fondo sutil con animación de respiración */}
-          <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-28 bg-[#00F0FF]/15 blur-3xl pointer-events-none animate-pulse-glow" />
-
-          {/* Selector de modo y telemetría */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-[#00F0FF]/10 text-[#00F0FF] border border-[#00F0FF]/30">
-                [COCKPIT INGESTION]
-              </span>
-              <span className="text-[11px] font-mono text-slate-400">
-                {isRecording ? "Transmisión Activa" : "Sistema Preparado"}
-              </span>
             </div>
 
-            <div className="flex items-center justify-center gap-2 bg-slate-950/60 p-1 rounded-2xl border border-slate-800">
-              <button
-                onClick={() => setActiveTab("record")}
-                className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition ${
-                  activeTab === "record"
-                    ? "bg-[#00F0FF]/20 text-[#00F0FF] border border-[#00F0FF]/40 shadow-sm shadow-[#00F0FF]/20"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                🎙️ Dictado en Directo
-              </button>
-              <button
-                onClick={() => setActiveTab("upload")}
-                className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition ${
-                  activeTab === "upload"
-                    ? "bg-[#00F0FF]/20 text-[#00F0FF] border border-[#00F0FF]/40 shadow-sm shadow-[#00F0FF]/20"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                📁 Subir Audio de Clase
-              </button>
-            </div>
-          </div>
-
-          {activeTab === "record" ? (
-            <div className="space-y-4 pt-1">
-              <div className="space-y-1">
-                <div className="flex items-center justify-center gap-2">
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      isRecording ? "bg-rose-500 animate-ping" : "bg-slate-500"
-                    }`}
-                  />
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
-                    {isRecording ? "Transcribiendo voz en tiempo real con Whisper..." : "Listo para dictar o escuchar la clase"}
-                  </span>
-                </div>
-                <div
-                  className={`text-5xl sm:text-6xl font-mono font-bold tracking-tight transition-colors duration-300 ${
-                    isRecording ? "text-[#00F0FF]" : "text-slate-500"
+            <div className="mt-8 flex gap-6 border-b border-white/[0.08] text-sm">
+              {(["record", "upload"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`-mb-px pb-3 border-b-2 transition-colors ${
+                    activeTab === tab ? "border-mint text-chalk" : "border-transparent text-chalk-muted hover:text-chalk"
                   }`}
                 >
-                  {formatTime(recordSeconds)}
-                </div>
-              </div>
+                  {tab === "record" ? "En directo" : "Subir audio"}
+                </button>
+              ))}
+            </div>
 
-              {/* Visualizador de Onda Boreal */}
-              <AudioVisualizer isRecording={isRecording} stream={stream} />
-
-              {/* Botón Principal de Acción */}
-              <div className="pt-2 flex items-center justify-center">
-                {!isRecording ? (
-                  <button
-                    onClick={handleStartRecording}
-                    disabled={isLoading}
-                    className="group relative px-9 py-3.5 rounded-full bg-gradient-to-r from-[#00F0FF] to-[#10B981] hover:from-cyan-300 hover:to-emerald-400 text-slate-950 font-bold text-sm shadow-xl shadow-cyan-950/60 flex items-center gap-3 transition transform active:scale-95"
+            {activeTab === "record" ? (
+              <div className="pt-8 flex flex-col items-center gap-6">
+                <div className="text-center">
+                  <div
+                    className={`font-mono text-5xl sm:text-6xl tabular-nums transition-colors ${
+                      isRecording ? "text-chalk" : "text-chalk-faint"
+                    }`}
                   >
+                    {formatTime(recordSeconds)}
+                  </div>
+                  <p className="mt-2 text-sm text-chalk-muted flex items-center justify-center gap-2">
+                    {isRecording && <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />}
+                    {isRecording
+                      ? `Grabando${chunkCount > 0 ? ` · ${chunkCount} trozos subidos` : ""}`
+                      : "Sin grabar"}
+                  </p>
+                </div>
+
+                <AudioVisualizer isRecording={isRecording} stream={stream} />
+
+                {!isRecording ? (
+                  <button onClick={handleStartRecording} disabled={isLoading} className="btn-primary">
                     <Mic className="w-4 h-4" />
-                    <span>Iniciar Dictado en Vivo</span>
-                    <ArrowRight className="w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform" />
+                    Empezar a grabar
                   </button>
                 ) : (
                   <button
                     onClick={handleStopRecording}
                     disabled={isLoading}
-                    className="px-9 py-3.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm shadow-xl shadow-rose-950/60 flex items-center gap-3 transition transform active:scale-95 animate-pulse"
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-chalk text-night font-semibold transition-colors hover:bg-chalk-soft"
                   >
-                    <Square className="w-4 h-4 fill-white" />
-                    <span>Finalizar y Estructurar Ficheros</span>
+                    <Square className="w-4 h-4 fill-current" />
+                    Parar y hacer los apuntes
                   </button>
                 )}
               </div>
-            </div>
-          ) : (
-            <div className="py-8 border border-dashed border-slate-800 rounded-2xl space-y-3 bg-slate-950/40">
-              <Upload className="w-8 h-8 text-[#00F0FF] mx-auto animate-float" />
-              <div>
-                <p className="text-xs font-semibold text-slate-200">Arrastra aquí una grabación de voz</p>
-                <p className="text-[11px] text-slate-400">Formatos compatibles: MP3, M4A, WAV, WebM, OGG</p>
-              </div>
-              <input type="file" id="upload-input" accept="audio/*" onChange={handleFileUpload} className="hidden" />
-              <button
-                onClick={() => document.getElementById("upload-input")?.click()}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-medium rounded-xl transition text-slate-200"
-              >
-                Seleccionar Archivo
-              </button>
-            </div>
-          )}
-
-          {/* Indicador de procesamiento */}
-          {isLoading && (
-            <div className="bg-slate-900/90 border border-[#00F0FF]/40 rounded-2xl p-3.5 flex items-center justify-center gap-3 text-[#00F0FF] text-xs font-medium shadow-md">
-              <div className="w-4 h-4 border-2 border-[#00F0FF] border-t-transparent rounded-full animate-spin" />
-              <span>{loadingMessage}</span>
-            </div>
-          )}
-        </section>
-
-        {/* Zona de Trabajo Dividida: Transcripción en Vivo vs Apuntes */}
-        <div id="seccion-apuntes" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Panel Izquierdo: Texto en Vivo al Momento */}
-          <section className="glass-panel rounded-3xl p-5 flex flex-col space-y-3 shadow-xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#00F0FF]" />
-                <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-200">
-                  Transcripción en Directo
-                </h2>
-                {isRecording && (
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-950/80 text-rose-400 border border-rose-800/40 animate-pulse">
-                    En vivo
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-[11px] font-mono text-slate-400">{totalWords} palabras</span>
-                <button
-                  onClick={handleCopyTranscript}
-                  disabled={!liveTranscript}
-                  className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition"
-                >
-                  {copiedTranscript ? <Check className="w-3.5 h-3.5 text-[#10B981]" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copiedTranscript ? "Copiado" : "Copiar"}
-                </button>
-              </div>
-            </div>
-
-            {/* Cuadro de texto que se va escribiendo al momento */}
-            <div className="w-full flex-1 min-h-[260px] max-h-[380px] overflow-y-auto bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-xs font-mono text-slate-200 leading-relaxed space-y-2">
-              {liveTranscript || interimText ? (
-                <div>
-                  <span>{liveTranscript}</span>
-                  {interimText && <span className="text-[#00F0FF] italic ml-1">{interimText}</span>}
-                  {isRecording && <span className="inline-block w-1.5 h-4 bg-[#00F0FF] ml-1 animate-pulse align-middle" />}
-                </div>
-              ) : (
-                <p className="text-slate-500 italic">
-                  El texto dictado o hablado en clase aparecerá aquí en tiempo real según hables...
-                </p>
-              )}
-            </div>
-
-            <button
-              onClick={() => processAndStructureLecture(liveTranscript, lastAudioPath)}
-              disabled={isLoading || !liveTranscript.trim()}
-              className="w-full py-2.5 bg-[#10B981] hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Sintetizar y Generar Ficheros Estructurados
-            </button>
-          </section>
-
-          {/* Panel Derecho: Apuntes Cornell & LaTeX */}
-          <section className="glass-panel rounded-3xl p-5 flex flex-col space-y-3 shadow-xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-[#10B981]" />
-                <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-200">
-                  Apuntes Estructurados
-                </h2>
-              </div>
-              <div className="flex gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
-                <button
-                  onClick={() => setNotesViewMode("preview")}
-                  className={`text-[11px] px-2.5 py-0.5 rounded-lg font-medium transition ${
-                    notesViewMode === "preview"
-                      ? "bg-slate-800 text-white"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Vista Previa
-                </button>
-                <button
-                  onClick={() => setNotesViewMode("raw")}
-                  className={`text-[11px] px-2.5 py-0.5 rounded-lg font-medium transition ${
-                    notesViewMode === "raw"
-                      ? "bg-slate-800 text-white"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Markdown
-                </button>
-              </div>
-            </div>
-
-            {notesViewMode === "preview" ? (
-              <div
-                className="w-full flex-1 min-h-[260px] max-h-[380px] overflow-y-auto bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-xs prose prose-invert max-w-none text-slate-200"
-                dangerouslySetInnerHTML={{
-                  __html: notesMarkdown
-                    ? marked.parse(notesMarkdown)
-                    : "<p class='text-slate-500 italic'>Los apuntes estructurados (resumen Cornell, definiciones, fórmulas LaTeX y avisos de examen) se presentarán aquí...</p>",
-                }}
-              />
             ) : (
-              <textarea
-                value={notesMarkdown}
-                onChange={(e) => setNotesMarkdown(e.target.value)}
-                placeholder="Código Markdown de los apuntes..."
-                className="w-full flex-1 min-h-[260px] max-h-[380px] bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 text-xs font-mono text-slate-300 resize-none focus:outline-none"
-              />
+              <div className="pt-8">
+                <div className="py-10 border border-dashed border-white/15 rounded-lg text-center">
+                  <Upload className="w-6 h-6 text-chalk-muted mx-auto" />
+                  <p className="mt-3 text-chalk">Sube la grabación de una clase</p>
+                  <p className="text-sm text-chalk-muted mt-1">MP3, M4A, WAV, WebM u OGG</p>
+                  <input type="file" id="upload-input" accept="audio/*" onChange={handleFileUpload} className="hidden" />
+                  <button onClick={() => document.getElementById("upload-input")?.click()} className="btn-ghost mt-5">
+                    Elegir archivo
+                  </button>
+                </div>
+              </div>
             )}
 
-            {/* Sincronización Externa Manual */}
-            <div className="pt-2 border-t border-slate-800/80 flex flex-wrap gap-2">
+            {isLoading && (
+              <div className="mt-6 flex items-center justify-center gap-3 text-sm text-chalk-soft">
+                <div className="w-4 h-4 border-2 border-mint border-t-transparent rounded-full animate-spin" />
+                <span>{loadingMessage}</span>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Transcripción y apuntes */}
+        <section id="seccion-apuntes" className="scroll-mt-8">
+          <h2 className="section-title">Apuntes</h2>
+          <p className="mt-2 text-chalk-muted">A la izquierda lo que se ha dicho; a la derecha, ya ordenado.</p>
+
+          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Transcripción en directo */}
+            <div className="night-card p-5 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-chalk-muted" />
+                  <h3 className="font-medium">Transcripción</h3>
+                  {isRecording && <span className="text-xs text-rose-300">en directo</span>}
+                </div>
+                <div className="flex items-center gap-4 text-sm text-chalk-muted">
+                  <span>{totalWords} palabras</span>
+                  <button
+                    onClick={handleCopyTranscript}
+                    disabled={!liveTranscript}
+                    className="flex items-center gap-1 hover:text-chalk transition-colors disabled:opacity-40"
+                  >
+                    {copiedTranscript ? <Check className="w-3.5 h-3.5 text-mint" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedTranscript ? "Copiado" : "Copiar"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 min-h-[280px] max-h-[400px] overflow-y-auto rounded-lg bg-night p-4 text-[15px] leading-relaxed text-chalk-soft">
+                {liveTranscript || interimText ? (
+                  <p>
+                    <span>{liveTranscript}</span>
+                    {interimText && <span className="text-chalk-faint ml-1">{interimText}</span>}
+                    {isRecording && <span className="inline-block w-[2px] h-4 bg-chalk ml-1 animate-pulse align-middle" />}
+                  </p>
+                ) : (
+                  <p className="text-chalk-faint">Aquí irá apareciendo el texto mientras grabas.</p>
+                )}
+              </div>
+
               <button
-                onClick={() => handleExport("obsidian")}
-                disabled={isLoading || !notesMarkdown}
-                className="flex-1 min-w-[110px] py-2 bg-slate-900/60 hover:bg-slate-800 border border-slate-800 disabled:opacity-40 text-[#00F0FF] text-xs font-medium rounded-xl transition flex items-center justify-center gap-1.5"
+                onClick={() => processAndStructureLecture(liveTranscript, lastAudioPath)}
+                disabled={isLoading || !liveTranscript.trim()}
+                className="btn-ghost w-full py-2.5"
               >
-                <Layers className="w-3.5 h-3.5" />
-                A Obsidian
-              </button>
-              <button
-                onClick={() => handleExport("latex")}
-                disabled={isLoading || !notesMarkdown}
-                className="flex-1 min-w-[110px] py-2 bg-slate-900/60 hover:bg-slate-800 border border-slate-800 disabled:opacity-40 text-[#10B981] text-xs font-medium rounded-xl transition flex items-center justify-center gap-1.5"
-              >
-                <FileCode className="w-3.5 h-3.5" />
-                A LaTeX / PDF
-              </button>
-              <button
-                onClick={() => handleExport("notion")}
-                disabled={isLoading || !notesMarkdown}
-                className="flex-1 min-w-[110px] py-2 bg-slate-900/60 hover:bg-slate-800 border border-slate-800 disabled:opacity-40 text-[#F59E0B] text-xs font-medium rounded-xl transition flex items-center justify-center gap-1.5"
-              >
-                <Database className="w-3.5 h-3.5" />
-                A Notion
+                <BookOpen className="w-4 h-4" />
+                Hacer apuntes con este texto
               </button>
             </div>
-          </section>
-        </div>
 
-        {/* Sección Viva del Pipeline: Del Murmullo al Orden (Parallax de Scroll) */}
-        <PipelineShowcase scrollY={scrollMetrics.scrollY} />
+            {/* Apuntes estructurados */}
+            <div className="night-card p-5 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-chalk-muted" />
+                  <h3 className="font-medium">Apuntes</h3>
+                </div>
+                <div className="flex gap-3 text-sm">
+                  {(["preview", "raw"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => setNotesViewMode(mode)}
+                      className={`transition-colors ${
+                        notesViewMode === mode ? "text-chalk underline underline-offset-4 decoration-mint" : "text-chalk-muted hover:text-chalk"
+                      }`}
+                    >
+                      {mode === "preview" ? "Leer" : "Markdown"}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-        {/* Explorador de Ficheros Estructurados Automáticos */}
+              {notesViewMode === "preview" ? (
+                <div
+                  className="notes-prose flex-1 min-h-[280px] max-h-[400px] overflow-y-auto rounded-lg bg-night p-4"
+                  dangerouslySetInnerHTML={{
+                    __html: notesMarkdown
+                      ? (marked.parse(notesMarkdown) as string)
+                      : "<p class='text-chalk-faint'>Cuando termines de grabar, los apuntes aparecerán aquí.</p>",
+                  }}
+                />
+              ) : (
+                <textarea
+                  value={notesMarkdown}
+                  onChange={(e) => setNotesMarkdown(e.target.value)}
+                  placeholder="Markdown de los apuntes…"
+                  className="flex-1 min-h-[280px] max-h-[400px] rounded-lg bg-night border border-transparent p-4 text-sm font-mono text-chalk-soft resize-none focus:outline-none focus:border-white/15"
+                />
+              )}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-chalk-muted mr-1">Enviar a</span>
+                {exportTargets.map(({ key, label, icon: Icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => handleExport(key)}
+                    disabled={isLoading || !notesMarkdown}
+                    className="btn-ghost"
+                  >
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <PipelineShowcase />
+
         <StructuredFilesExplorer refreshTrigger={refreshFilesTrigger} />
       </main>
 
-      {/* Footer */}
-      <footer className="text-center py-6 text-xs font-mono text-slate-500 border-t border-slate-800/80 relative z-10 flex flex-col items-center gap-1">
-        <div>Murmur • Dictado en Vivo & Estructuración Automática de Apuntes</div>
-        <div className="text-[10px] text-slate-600">Open-Source • Whisper • Cornell Notes • LaTeX • Obsidian</div>
+      <footer className="border-t border-white/[0.06] py-8">
+        <div className="max-w-5xl mx-auto px-5 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm text-chalk-faint">
+          <span>murmur · código abierto, licencia MIT</span>
+          <span>Hecho para estudiar un poco más tranquilo.</span>
+        </div>
       </footer>
     </div>
   );
