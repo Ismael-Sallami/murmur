@@ -5,7 +5,8 @@ y proporcionar valores predeterminados seguros para desarrollo y producción.
 """
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -44,6 +45,14 @@ class Settings(BaseSettings):
     obsidian_vault_path: Path | None = None
     notion_api_key: str | None = None
     notion_database_id: str | None = None
+
+    @field_validator("obsidian_vault_path", mode="before")
+    @classmethod
+    def clean_obsidian_path(cls, v: Any) -> Path | None:
+        """Evita que cadenas vacías o relativas sin definir apunten al directorio raíz actual."""
+        if not v or str(v).strip() in ("", ".", "./"):
+            return None
+        return Path(v)
 
     def ensure_directories(self) -> None:
         """Crea los directorios necesarios si aún no existen."""

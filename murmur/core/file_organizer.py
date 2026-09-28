@@ -112,7 +112,11 @@ class FileOrganizer:
         created_files["metadata_json"] = str(meta_path)
 
         # 6. Sincronizar automáticamente con la bóveda de Obsidian si está configurada
-        if settings.obsidian_vault_path and settings.obsidian_vault_path.exists():
+        if (
+            settings.obsidian_vault_path
+            and str(settings.obsidian_vault_path).strip() not in ("", ".", "./")
+            and settings.obsidian_vault_path.is_dir()
+        ):
             obsidian_subject = settings.obsidian_vault_path / safe_subject
             obsidian_subject.mkdir(parents=True, exist_ok=True)
             obsidian_file = obsidian_subject / f"{safe_title}.md"

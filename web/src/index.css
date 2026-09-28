@@ -1,25 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
   body {
-    @apply bg-slate-950 text-slate-100 font-sans;
+    @apply bg-[#0A0F1D] text-slate-100 font-sans selection:bg-[#00F0FF]/25 selection:text-[#00F0FF];
   }
 }
 
-/* Scrollbar estilizada */
+/* Scrollbar estilizada nórdica */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #0A0F1D;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: rgba(56, 189, 248, 0.25);
   border-radius: 9999px;
+  border: 1px solid rgba(0, 240, 255, 0.1);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: rgba(0, 240, 255, 0.5);
+}
+
+/* Efectos Glassmórficos y Rim Highlights */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-elevated {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(0, 240, 255, 0.22);
+  box-shadow: 0 20px 40px -15px rgba(0, 240, 255, 0.08), inset 0 1px 0 0 rgba(0, 240, 255, 0.2);
+}
+
+/* Utilidad para elementos que revelan al hacer scroll */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.scroll-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
